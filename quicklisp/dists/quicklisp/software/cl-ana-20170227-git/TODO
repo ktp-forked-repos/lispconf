@@ -1,0 +1,513 @@
++ Make note in the wiki that res forms are no longer supported in a
+  logical field.  Show how equivalent functionality is provided by
+  creating a logical table and loading res forms as init expressions.
+
++ Remove support for res forms in logical fields in makeres-table.
+  This is unnecessary and cumbersome to implement accurately.
+
+- After changing from depsort to topological sort, I've found that the
+  project in tabletrans-test.lisp is not sorted correctly.
+  Investigate and solve this bug.
+
+  Added invert-depmap to solve this.
+
++ Create graphical project viewer add-on for Emacs.  The project
+  viewer would include an ID search/auto-complete function, as well as
+  copying IDs to the kill ring, etc.
+
+  At the moment, this is not really necessary since with SLIME,
+  evaluating (target-ids) into the REPL and then a regex I-search
+  backwards lets you find matching target IDs very quickly.
+
+- Add macro unsetdeps and function unsetdepsfn which unset any
+  dependencies of a target.  This is needed when attempting load a
+  project but recalculate some results at the same time.
+
+  The sequence of operations would be
+
+  1. (load-project)
+  2. Change definitions or unset some results
+  3. Call (unsetdeps id) for each ID that has been unset
+  4. (makeres)
+
++ Add target nicknames functionality.  Transformation doesn't seem
+  adequate since the nicknames should be useful outside of the
+  transformation pipeline, so most likely needs to be a modification
+  to the makeres system.
+
+- Add a checkres check with error handling to makeres, so that
+  execution is not attempted if the target table is invalid.
+
++ Add parallel execution of targets to makeres/compres.  Still hashing
+  out the details.  Make sure to allow rules, such as only one table
+  pass operation at a time.  When used with makeres-cpp, the user
+  could allow 2 C++ table passes at a time for example since C++ can
+  be at least twice as fast as Lisp, but this option needs to be
+  available.
+
+  This needs to be added directly to the makeres and/or compres
+  functions, since table transformations are not good at handling
+  runtime constraints, which this would need to use in order to be
+  most efficient.  A bad alternative I considered briefly was to use a
+  transformation that drastically altered the target table so that
+  there is a master target which dispatches parallel jobs, and all
+  results are fed from the master target into the result targets after
+  completion of the master, but this suffers from the lack of recovery
+  of a failed computation.
+
++ Stabilize logging.  The result logging system (at least the tracking
+  and timestamp system) should be system-independent and backwards
+  compatible, so I need to explicitly design a specification for
+  creating the logs that ensures these two features.
+
++ CRITICAL: Upgraded my system to HDF5 1.10 and now HDF5 is
+  complaining that files which I just opened are not file ids.  Will
+  update with working HDF5 versions until bug fix is complete.
+
+  Possibly add Gerd's HDF5 as a cl-ana dependency to fix.
+
++ It should be possible to build a pass-merge transformation defining
+  system, so that makeres-cpp could be a very simple layer on top of
+  the more general pass-merge transformation.  There are only a few
+  differences between tabletrans and cpptrans which should allow for
+  operator standardization, leaving only context management and final
+  operators for configuration.
+
+- Add utilities for merging pages and plots so that comparison plots
+  can be made easily.
+
+- Add grid settings to plot.  Includes adding grid function in same
+  spirit as label, tics, etc.  Note that grid settings must be sent to
+  gnuplot after tics settings.
+
+- Resolve define-quantity-methods situation.  As it is now, it suffers
+  from inefficiencies and a previously missed limitation: Methods(open-hdf-file (target-path '(cpp (local e1e d-n-pi+ san) deltat pip) "data")
+:direction :input)
+  which come with cl-ana cannot know about new quantity types, even if
+  defquantity is used.  Either a smarter system is needed, or define a
+  default arithmetic method which interprets everything as a quantity
+  if necessary.
+
+  Due to this, and due to the fact that the only commonly defined
+  operations on quantities are basic arithmetic, it doesn't makes
+  sense to favor extensible methods over a working solution.  At the
+  same time, this also means that clobbering the default method is
+  overkill since there is virtually no need to define new quantity
+  types, whereas the user or other libraries may wish to override
+  default settings.
+
+  SOLUTION: Define default methods on arithmetic operators to
+  interpret all arguments as quantities.  Define with-quantities macro
+  to make defining these easier.
+
++ Possibly implement system for enabling or disabling the
+  reader-macros for quantities and err-nums.
+
+- Use #~ reader macro for err-nums instead of the (+- ...) system
+  which doesn't allow reading and writing of literal objects.
+
++ Fully test new quantity implementation.  Quantities are not always
+  expressed in base units, and instead #'quantity expands units when
+  called on a quantity object.
+
++ Add plotting cleanup methods for implementations other than SBCL
+
+  Added:
+  * CLISP (needs testing but should work)
+
++ Fix potential bug in makeres-table as demonstrated in the large wiki
+  example; apparently the (src y-cut x-y hist) target is still being
+  treated as needing a second pass over (src y-cut) even when they are
+  the only two targets with NIL stats.  Needs further investigation.
+
++ Add tutorial and example code to cl-ana which covers all the wiki
+  material and other useful examples.
+
++ Fix draw-pdf so that periods, (.), in path basenames do not cause
+  problems.  At the moment it looks like pdflatex can't infer the plot
+  type if a period is in the path basename.
+
+  WORKAROUND: Write to a temporary file and move to the final
+  location.
+
+- Find more efficient way of interacting with gnuplot.  The only
+  reason cl-ana has to poll for output from gnuplot is because it
+  loses output when unbuffered, but buffering could still be possible
+  if real-time output could be read while maintaining buffered input.
+
+  If gnuplot could work with files then a simple file-based system
+  could be used to signal completion of commands.
+
+  RESOLVED: Used the 'print' command to generate a prompt and
+  prompt-wait for this on a per-plot basis.  There would likely be
+  problems if an error caused the prompt command to not be evaluated,
+  but since separate lines are sent to the gnuplot session this should
+  not happen.
+
++ Small bug: Fix contiguous->sparse and sparse->contiguous so that the
+  empty bin value and default increment can be copied or optionally
+  set to new values.  At the moment they are not copied and left to
+  the default values.
+
+- FLAW: Current plotting solution file based solution grows
+  uncontrolled every time a new Lisp instance running cl-ana draws a
+  plot.  Need to find a better way to allow multiple cl-ana instances
+  to share the same plotting directory without clobbering and with
+  data files cleaned up automatically.  gnuplot seems to be the main
+  problem here, since as it stands gnuplot seems to return a prompt
+  prior to actually plotting the data, which means that cl-ana has no
+  way to know when the plot has finished.
+
+  POSSIBLE FIX: SBCL at least supports exit hooks through
+  sb-ext:*exit-hooks*, so an implementation-dependent exit-hook system
+  could allow cl-ana to cleanup after itself.  Quitting Lisp from
+  SLIME seems to trigger the exit hook system in SBCL at least.
+
+  SOLUTION: Added SBCL method for cleaning up
+
+- BUG: Fix plotting so that multiple instances of lisp running cl-ana
+  do not clobber each other's plot data files.
+
+  Possible fix: Use process ID as unique identifier and place all plot
+  data underneath a directory named after the PID.  Have draw delete
+  the directory after returning.
+
++ Improve plotting so that safe IO is more efficient.  At the moment
+  the per-line checking after generating all commands for a page is
+  much slower than I'd like it to be.  Perhaps instead of per-line it
+  could be per a certain number of lines?  Pages now control the file
+  index so plots can theoretically have their commands sent without
+  confirming receipt, but this caused problems with larger multiplots
+  even using file IO.
+
+- Found bug with gnuplot-file-io; my PhD code is currently an example
+  of the bug.
+
+  gnuplot-interface and plotting need to be modified so that the draw
+  function can wait on gnuplot to return a prompt.
+
+  Fixed using unbuffer from expect
+
+- Need operator mvres which renames a target in the target table and
+  moves its log as well.  Should take arguments from, to, and &key
+  force-p which would force deletion of any conflicting files at the
+  destination.
+
+- Solved bug in cl-ana.makeres-table; group-ids-by-pass needed to
+  remove targets prior to grouping into passes.
+
++ Need to add warning message in the case where an lfield is defined
+  which causes circular dependencies.  Circular dependencies need
+  detection and handling in general.
+
+- Changing an lfield definition currently does not effect any targets
+  in the target-table directly, and therefore propogation does not
+  automatically recompute affected targets.  The transdeps system is
+  in place, so maybe it could be used in conjunction with small
+  modifications to deflfields in order to allow recomputation in the
+  case of lfield changes.
+
+- makeres should support resuming computations if an error causes
+  computation to cease.  This could be supported via load-project in
+  conjunction with files generated by makeres.  If makeres creates a
+  log file at the start of a computation and deletes this file at the
+  end of computation, then the presence of this file would indicate
+  that a problem had occurred during the last computation.
+  load-project could then throw an exception and ask what to do, the
+  primary option being to determine from the logged information which
+  targets had been successfully computed and which had not been.  If
+  the log contains the names of the targets being computed and the
+  computation start time, then any logged results with computation
+  times not being at least as recent as the logged computation need to
+  be recomputed.  The dependencies should not be unset since in
+  general makeres does not and should not demand propogation, allowing
+  for dependencies to be conceivable computed in any order due to user
+  intervention.
+
+- Possibly define added dependency function for macrotrans as done for
+  tabletrans since macros should be expanded to check for
+  dependencies.
+
+- Dependencies propogated through lfields are not handled properly.
+  If a table reduction makes use of an lfield which depends on a
+  result target, then updating the target does not propogate through
+  the reductions using those lfields.
+
++ Using err-nums in CSV tables is broken since err-nums are not
+  actually readable as written.  Either need to go back to the
+  reader-macro #e or find a way to make +- readable.
+
+- Found bug in makeres-table: Reproducible in my private 6barana code,
+  trying to find a minimal example for public.  When running project
+  from scratch, no problems, but when loading a saved project and
+  re-running, dep< when called on the final target table finds a loop
+  in the graph.  It seems to be coming from a bug in table pass
+  merging, as I checked the circular dependency in the final graph
+  visually via dot-compile and dot->png.
+
+  Resolved via patching removed-*-dep< functions in
+  cl-ana.makeres-table
+
++ Possibly find iterative approach to transformations.  It would be
+  very useful to allow computation of results before applying
+  transformations so that computed results could change the way the
+  target table is interpreted.  Not sure how practical this is or
+  whether it would be efficient in practice, but this could allow for
+  very interesting computations.  E.g. the branching transformation
+  could branch on calculated results as opposed to compile-time data.
+
+- Fix err-num save-object
+
+  Bug caused confusing behavior due to only being present in a large
+  project I was working on.  Turns out that the new save-object and
+  load-object methods for lists were writing err-nums to file in a way
+  that they would not be read correctly since there was no special
+  method for saving err-nums.  Added a save-object method for err-nums
+  to fix.
+
+- CRITICAL BUG: read-histogram is broken.
+
+  * read-histogram cannot read histograms saved via write-histogram,
+    while old-read-histogram still can.
+
++ Add some method to check if an object can be printed so that
+  save-object can more efficiently handle output to file for
+  e.g. sequences.  Partially implemented in cons example, but this
+  strategy does not scale well when adding many types.
+
+- branchtrans appears broken; no matter what the target-stat is, each
+  branch target keeps getting recomputed.
+
+  Needed to treat already computed branch targets differently
+
++ Possibly change makeres-branch so that the branch source is actually
+  the list form providing the branching.  At the moment, the algorithm
+  assumes that there will be a single target which branches on a list
+  of possibilities, and that this target must be referred to somewhere
+  along a chain of branching sources.  However, what would be better
+  would be to have parallel branches be able to access each other's
+  targets during the branching, so this would require that the source
+  be allowed to be the branch list form itself, or at least have this
+  behavior emulated.
+
++ Provide some mechanism for treating makeres target-table
+  transformations as plugins so that initialization and possibly even
+  transformation ordering in the pipeline can be automated so users
+  don't have to manage minutia.
+
+- Potentially useful makeres transformation: Operators which allow
+  branching.  Example: Creating histograms with different binnings.
+  The branching operator could allow specification of a list of
+  different branch values and an operator which would refer to the
+  particular branch value in a branch instance, but the code would
+  remain the same otherwise.  The branch operator would return a hash
+  table mapping from the branch value to the corresponding computed
+  result.  The branch transformation could create a result target for
+  each branch so that e.g. table transformations would still work
+  properly.  There could be a function #'branch (potentially private
+  to the transformation package) which would take an id symbol and
+  return the branch value for that particular branch instance.  That,
+  or have a system of hash-tables.
+
+- Bug in in-project: Calling in-project repeatedly on the same project
+  id actually erases the target definitions.
+
+  Fixed by creating function in-project-fn
+
++ makeres-table may have more problems.
+
+  * On one occasion, after a computation failed, the source table was
+    not logged although some of the reductions were logged.  This led
+    to circular dependencies and compres would exhaust the stack.  The
+    solution was to call setresfn on the source table ID using any
+    table and then call save-target.  Once all the source tables were
+    logged, the dependencies worked correctly and computation
+    continued.
+
+  * Also, when working on my phd analysis, after a computation fails
+    and I correct the bug, some reductions which presumably should
+    have been calculated already need recomputing.  This and the above
+    potential bug may have the same source, I suspect some issues with
+    the order of calls to setresfn, or maybe in setresfn itself.
+
++ Update documentation on tables due to changing the functionality of
+  table field names
+
+- Extend tables so that field names are general keyword symbols
+
+  - hdf-tables and csv-tables are working with general keyword symbols
+    as well as serialization of histograms.
+
+  - ntuple-table and plist-table may need modification still
+
++ Allow any HDF5 compound type to be used with hdf-tables, not just
+  those which are created from structures.  The field offsets are
+  dependent on the compiler for structures, but the HDF5 files contain
+  the offset information, so in principle any HDF5 type could be
+  supported.  This would require a complete rennovation of the
+  hdf-typespec utility, or perhaps a complete abandonment in favor of
+  custom code just for hdf-tables.
+
+* See makeres/ToDo.txt for makeres specific tasks
+
+- Renovate logres so that results can be loaded/saved dynamically.
+
+  There are two broad approaches:
+
+  1. Find a naming/organization scheme on disk which is static;
+     i.e. each target is algorithmically given a name which is unique
+     to that target ID form, and each target handles its own contents
+     by storing itself as either a directory or a file.
+
+  2. Keep flat storage strategy, but implement condensing algorithm
+     which renames the files such that the minimum maximum value is
+     used; at the moment, naively keeping flat storage would result in
+     ever growing index numbers due to old targets being removed while
+     new targets keep acquiring larger index values.
+
+  I'm leaning towards 1 due to being conceptually easier to work with
+  and not all that difficult to implement.  The downside to 1 is that
+  old result logs will either need to be converted or recomputed.
+
+  Went with 1, used the target id as the pathname relative to the
+  version path.
+
++ Fix read-histogram so that output from C/C++ code which does not use
+  structs can still be used.
+
+  At the moment, structs are used and the offets from a C struct
+  placed in the HDF5 type since type conversion for compound types is
+  built on top of CFFI's defcstruct.
+
+  The only other options would be to include offset information in a
+  compound typespec and then update the HDF5 -> typespec functions as
+  well as any which process typespecs.
+
+% Create raw-hdf-table and raw-hdf-table-chain which remove the
+  automatic type conversion from HDF5 types to Lisp, and require the
+  user to use foreign object interfaces from e.g. CFFI to analyze
+  data.  This seems to be necessary for large datasets since, as per
+  the results from the benchmarks below, ROOT with C++ is 2 orders of
+  magnitude faster than the current Lisp implementation.
+
+  NOTE: The raw versions are pending for deletion due to new benchmark
+  results; type conversion isn't the bottleneck.
+
+- Conduct detailed benchmarks of Lisp performance vs. C++ with ROOT or
+  HDF5 for processing datasets of varying size and structure, varying
+  number of histograms to fill, etc., both for makeres generated code
+  and for fully optimized Lisp.
+
+  Tentative results: that ROOT with C++ runs 2 orders of magnitude
+  faster than either the macro or compiled benchmarks in Lisp which
+  use the low level libraries, and type declaration doesn't appear to
+  aid much at all.
+
+  Final results: C++ with ROOT is two orders of magnitude faster than
+  cl-ana functionality (additional type declarations don't have any
+  effect), but less than a factor of 2 away from raw HDF5 CFFI
+  function calls from within Lisp.  cl-ana histograms are a
+  significant bottleneck even with type declarations.  C++ with HDF5
+  and naive histograms is even faster than ROOT.
+
+- work-path function which returns paths relative to the current
+  working directory, ensure-directories-exist being called to define
+  subdirectories automatically
+
+- Single function/macro for defining a makeres+logres project along
+  with common settings.
+
++ Update copyright to be 2013-2015
+
+logres:
+
+- If logged target form is not equal to the one loaded into the Lisp
+  image, then propogate the need to compute any targets which depend
+  on that target.  At the moment, I think I'm just not loading the
+  target, but in principle if you change the form (and value) of a
+  target but load targets which actually depend on it, then you'll
+  load the wrong values which actually need recomputing as well.
+
+- Log target form so that current form can be checked against the one
+  used to compute the result logged.  This removes the need for the
+  user to keep track of which targets have been updated if the results
+  were not saved or if multiple analysis versions are being used.
+  Updates to libraries will still be problematic however.
+
+- Each target and logged file should come with a timestamp so that
+  versions of targets and files can be compared.  This would be useful
+  for e.g. sending files to another computer and only updating the
+  files which have differing timestamps as well as only saving targets
+  which have changed when saving a project.
+
++ Use SHA1 sums for checking work files
+
+  This is partially completed, but I need to find a way to easily
+  track sha1 sums for files.  At the moment, it's turning into a
+  monolithic monster whereas I would rather have operators provided
+  which automate the management of the sha1 sums.
+
++ Logging functionality may need to be partially supported by graph
+  transformations so that targets can be saved to disk and cleared
+  from memory to avoid memory bottlenecks on low-memory systems.  It's
+  already taking ~ 1.5 GB for my PhD analysis just to store all the
+  histograms etc. in memory.
+
+makeres:
+
+- Add tabletrans operator which allows multiple targets to be defined
+  and computed as a block.  Would greatly assist in allowing
+  e.g. multiple maps over the same computed list, fitting data (since
+  functions themselves cannot be logged but the parameters can,
+  requiring multiple targets per fit).
+
+  Could have a macro defresblock defining a result block.  Would take
+  the ids of the computed results as arguments and would define
+  temporary versions of the targets.  The tabletrans transformations
+  would take care of providing e.g. the ability to refer specifically
+  to which target you want to incrementally compute throughout the
+  block.
+
+  (COULD STILL DO THIS) This could actually provide a better platform
+  for implementing the table transformations as well, as the merging
+  of table passes ultimately computes multiple targets at once,
+  meaning that at least some of the work currently done by
+  makeres-table could be moved to this new tabletrans library.
+
++ Logging functionality may best be provided in the compiled function
+  of compres.  Each target would have as its path its res id.  Each
+  target would get its own directory, and inside a target's directory
+  would be a timestamp file as well as the saved information from the
+  target.  Each kind of target could have its own methods for storage,
+  be it a single binary file or multiple files along with an index
+  file.  Deleting a result could then automatically delete the stored
+  result as well if desired.
+
+* Some way to control when and how transformations are loaded into the
+  pipeline that doesn't require the user to know the exact ordering
+  required.  As it stands, you have to know that e.g. macro
+  transformations are required for table transformations, and that the
+  transformed macros should be expanded prior to table
+  transformations.
+
+makeres-macro:
+
+- Add ability to define functions and still have dependencies tracked.
+  This should be done simply by defining a new function definition
+  operator, define-res-function, which will store its dependencies in
+  a table.  Then, the makeres-macro tabletrans function will use this
+  information as it code walks, looking for any calls to a
+  res-function in a body and adding dependencies to the affected
+  targets accordingly.
+
+  SOLUTION: Defined new operator, define-res-function, which is just a
+  special kind of res-macro which expands the body in such a way that
+  the arguments are only evaluated once.
+
+makeres-table:
+
+- Source table definition with bootstrapping.  At the moment, the user
+  is tasked with opening source tables and handling the situation when
+  the source material for a table is not present.  There should be an
+  operator, perhaps stab, which allows the definition of a source
+  table.

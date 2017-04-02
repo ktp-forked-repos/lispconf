@@ -1,0 +1,2 @@
+#!/bin/bash
+./climlisp --userinit "/home/oleo/.clm.lisp" --eval '(clim-user::clm)'

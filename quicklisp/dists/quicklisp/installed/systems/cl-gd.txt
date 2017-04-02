@@ -1,0 +1,1 @@
+dists/quicklisp/software/cl-gd-0.6.1/cl-gd.asd

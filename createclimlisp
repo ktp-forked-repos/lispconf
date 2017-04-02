@@ -1,0 +1,566 @@
+(require 'asdf)
+
+(defvar *last-package* nil)
+(defvar *cached-prompt* nil)
+(defvar *prompt* nil)
+
+(defun package-prompt (stream)
+  (unless (eq *last-package* *package*)
+    (setf *cached-prompt*
+	  (concatenate 'string (or (first (package-nicknames *package*))
+				   (package-name *package*))
+		       "> "))
+    (setf *last-package* *package*))
+  (terpri)
+  (princ *cached-prompt* stream))
+
+(setf sb-int:*repl-prompt-fun* #'package-prompt)
+
+(asdf:oos 'asdf:load-op :linedit)
+
+(if (member "--no-linedit" sb-ext:*posix-argv* :test 'equal)
+    (setf sb-ext:*posix-argv*
+	  (remove "--no-linedit" sb-ext:*posix-argv* :test 'equal))
+  (when (interactive-stream-p *terminal-io*)
+    (require :sb-aclrepl)
+    (require :linedit)
+    (funcall (intern "INSTALL-REPL" :linedit) :wrap-current t)))
+
+(in-package :cl-user)
+
+(setq
+ *print-pretty* t
+ *print-escape* nil
+ *print-circle* nil
+ *print-right-margin* 110
+ *read-default-float-format* 'double-float
+ *readtable* (copy-readtable nil))
+;;*break-on-signals* nil)
+
+(if (not (member :rune-is-character *features*))
+    (push :rune-is-character *features*))
+
+(defun nil-as-list ()
+  (set-pprint-dispatch
+   '(eql nil)
+   (lambda (srm el)
+     (cond ((null (cdr el))
+	    (format srm "()"))
+	   (t
+	    (pprint-fill srm el t))))
+   2))
+
+(defun remove-nil-as-list ()
+  (let*
+      ((*print-pretty* nil)
+       (dispatch-table (slot-value *print-pprint-dispatch* 'sb-pretty::entries)))
+    (dolist (x dispatch-table)
+      (cond
+       ((equal '(eql ()) (slot-value x 'sb-pretty::type))
+	(setf (slot-value *print-pprint-dispatch* 'sb-pretty::entries)
+	      (remove x dispatch-table)))))))
+
+(defun pprint-dispatch-cons-entries ()
+  (let*
+      ((*print-pretty* nil)
+       (dispatch-table (slot-value *print-pprint-dispatch* 'sb-pretty::cons-entries)))
+    (loop for key being the hash-keys of dispatch-table
+	  using (hash-value value)
+	  collect (list key value))))
+
+(defun pprint-dispatch-entries (&optional p)
+  (let*
+      ((*print-pretty* nil)
+       (dispatch-table (slot-value *print-pprint-dispatch* 'sb-pretty::entries)))
+    (if p
+	(dolist (x dispatch-table)
+	  (print x))
+      dispatch-table)))
+
+(defun pprint-dispatch-find (term) ;; (pprint-dispatch-find '(eql ())) after (nil-as-list) for example
+  (let*
+      ((*print-pretty* nil)
+       (dispatch-table (slot-value *print-pprint-dispatch* 'sb-pretty::entries)))
+    (dolist (x dispatch-table)
+      (cond
+       ((equal term (slot-value x 'sb-pretty::type))
+	(return x))))))
+
+(defun pprint-dispatch-remove-quote ()
+  (let ((dispatch-table (slot-value *print-pprint-dispatch* (quote sb-pretty::cons-entries))))
+    (loop for key being the hash-keys of dispatch-table using (hash-value hash-value)
+	  collect (if (equal (quote (cons (eql quote))) (slot-value hash-value (quote type)))
+		      (remhash key dispatch-table)))))
+
+
+(defun remove-from-pprint-dispatch (term)
+  (let ((dispatch-table (slot-value *print-pprint-dispatch* (quote sb-pretty::cons-entries))))
+    (loop for key being the hash-keys of dispatch-table using (hash-value hash-value)
+	  collect (if (equal term (slot-value hash-value (quote type)))
+		      (remhash key dispatch-table)))))
+
+(defun dohash (table)
+  (let (result)
+    (maphash (lambda (k v) (push (list k v) result)) table)
+    (nreverse result)))
+
+(defmacro do-hash ((key-var val-var hash-expr &optional result-form) &body body)
+  (let ((hash-var (gensym "HASH-")))
+    `(loop with ,hash-var = ,hash-expr
+	   for ,key-var being the hash-keys of ,hash-var
+	   for ,val-var being the hash-values of ,hash-var
+	   do (progn ,@body)
+	   finally (return ,result-form))))
+
+;;; usage like...
+;;;(do-hash (k v table (dohash table))
+;;;  (terpri)
+;;;  #+:clim
+;;;  (with-drawing-options (t :text-size 16 :text-face :bold)
+;;    (format t "key: ~s, value: ~s" k v)))
+
+
+;; don't forget if you want your 'a stuff to expand to (quote a) properly set *print-pretty* to nil (disable)
+;; else lookups are made via the pprint dispatch tables and the pprinter has its own ways of printing stuff!
+;; especially don't forget to disable it when using/defining macro character functions!
+;; else expansions might not be the same as expected which will confuse just more....
+;; http://www.lispworks.com/documentation/HyperSpec/Body/22_ab.htm
+
+;;;; and tho *print-pretty* is a special var disabling/enabling it from the listener won't affect it's value
+;;;; in the sbcl repl! (threads ?)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;,;;;;;;;;;;;;;;;;;
+
+(setq *clocc-root* "/home/oleo/clocc/")
+(load "clocc/src/ytools/ytload/ytload")
+(setq ytools::config-directory* "/home/oleo/")
+(setq ytools::ytload-directory* "clocc/src/ytools/ytload/")
+
+;;(defun paip ()
+;;  (ignore-errors
+;;    (progn
+;;      (load "/home/oleo/prg/lisp/paip/norvig-old/auxmacs.lisp")
+;;      (load "/home/oleo/prg/lisp/paip/norvig-old/auxfns.lisp"))))
+
+;;(export 'cl-user::paip)
+(setf (logical-pathname-translations "NORVIG")
+      `(("NORVIG:**;*.*"   "/home/oleo/prg/lisp/norvig/**/*.*")
+	("NORVIG:**;*.*.*" "/home/oleo/prg/lisp/norvig/**/*.*")))
+
+(defun paip-new ()
+  (ignore-errors
+    (progn
+      (load "/home/oleo/prg/lisp/paip-pjb/norvig-paip-pjb.lisp"))))
+
+(export 'cl-user::paip-new)
+
+(defun make-loops (var-list-pairs last-loop-body)
+  (if (endp var-list-pairs)
+      last-loop-body
+    (destructuring-bind ((var list) . therest) var-list-pairs
+			`(loop for ,var in ,list do ,(make-loops therest last-loop-body)))))
+
+(defmacro make-comprehension (expr vars-in-lists guards)
+  (let ((accum (gensym)))
+    `(let ((,accum (list)))
+       (progn
+	 ,(make-loops vars-in-lists
+		      `(if (and ,@guards)
+			   (push ,expr ,accum)))
+	 (nreverse ,accum)))))
+
+(defun bubble-sort (array cmp-fun)
+  "Bubble sort implementation in common lisp. Using the extended loop facility."
+  (let ((result (copy-seq array)))
+    (loop for i from (1- (length result)) downto 0 do
+	  (loop for j from 0 to i
+		when (funcall cmp-fun (aref result i) (aref result j))
+		do (rotatef (aref result i) (aref result j)) ))
+    result))
+
+(defun insertion-sort (cmp-fun array-to-sort)
+    "Implementation of a destructive insertion sort on ARRAY-TO-SORT.
+The CMP-FUN is used to parametrize the order conditions. 
+This sort is generic, that means it can sort all kinds of objects for which
+one can run the CMP-FUN"
+
+    (flet ((insert-into-sorted (index)
+			       ;; example of a local function all outer variables are
+			       ;; accessible from within this local function
+			       (let ((el (aref array-to-sort index)))
+				 ;; save the element for later insertion
+				 (loop for j = (1- index) then (1- j)
+				       while (and (>= j 0) (not (funcall cmp-fun (aref array-to-sort j) el)))
+				       ;; the not is needed because the following should move all elements
+				       ;; not in order to the right
+				       do (setf (aref array-to-sort (1+ j)) (aref array-to-sort j))
+				       finally  (setf (aref array-to-sort (1+ j)) el)))))
+	  ;; now we can add el at the proper place
+	  (loop for i from 0 upto (1- (length array-to-sort))
+		do (insert-into-sorted i)))
+    array-to-sort)
+
+(defun small (list)
+  (or (null list) (null (cdr list))))
+
+(defun right-half (list)
+  (last list (ceiling (/ (length list) 2))))
+
+(defun left-half (list)
+  (ldiff list (right-half list)))
+
+(defun merge-lists (list1 list2)
+  (merge 'list list1 list2 #'<))
+
+(defun merge-sort (list)
+  (if (small list) list
+    (merge-lists
+     (merge-sort (left-half list))
+     (merge-sort (right-half list)))))
+
+(defgeneric lt (some other))
+
+(defmethod lt ((some number) (other number)) (< some other))
+
+(defmethod lt ((some string) (other string)) (string< some other))
+
+(defun qsort (l)
+  (when l (destructuring-bind (p . xs) l
+			      (append (qsort (@ x x xs (lt x p))) (list p)
+				      (qsort (@ x x xs (not (lt x p))))))))
+
+(defun qsort-alt (list)
+  (when list
+    (destructuring-bind (p . xs) list
+			(loop for x in xs if (lt x p)
+			      collect x into lesser
+			      else collect x into greater
+			      finally (return (append (quicksort-alt lesser) (list p) (quicksort-alt greater)))))))
+
+(defun gen-tuples-m (lst)
+  (reduce (lambda (b rest)
+	    (loop for xs in rest
+		  append (loop for i from 1 to b
+			       collecting (cons i xs))))
+	  lst
+	  :from-end t
+	  :initial-value '(())))
+
+(defun string-to-number (str &optional (base *read-base*) &rest rest)
+  (read-from-string str base))
+
+(defun number-to-string (num &optional (base *read-base*) &rest rest)
+  (write-to-string num :base base))
+
+(defun read-char-by-name (stream)
+  "blabla"
+  (let* ((input stream))
+    (cond
+     ((equal "^[0-9a-fA-F]+s" input)
+      (string-to-number input 16))
+     ((equal "^#" input)
+      (read input))
+     (t (read stream)))))
+
+(defun insert (&rest args)
+  args)
+
+(defun unlock-my-packages ()
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    #+sbcl
+    (dolist (pkg '(:sb-ext :sb-debug :sb-alien :common-lisp :common-lisp-user))
+      (sb-ext:unlock-package pkg))))
+
+(defun lock-my-packages ()
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    #+sbcl
+    (dolist (pkg '(:sb-ext :sb-debug :sb-alien :common-lisp :common-lisp-user))
+      (sb-ext:lock-package pkg))))
+
+(defun pds ()
+  (ignore-errors
+    (progn
+      (load "/home/oleo/prg/lisp/lisp/ppmx.lisp")
+      (load "/home/oleo/prg/lisp/lisp/dtrace.lisp")
+      (load "/home/oleo/prg/lisp/lisp/sdraw.lisp"))))
+
+(pds)
+
+(defun lold ()
+  (ignore-errors
+    (progn
+      (load "/home/oleo/prg/lisp/lisp/package.lisp")
+      (load "/home/oleo/prg/lisp/lisp/onlisp-util.lisp")
+      (load "/home/oleo/prg/lisp/lisp/onlisp-app.lisp")
+      (load "/home/oleo/prg/lisp/lisp/lol-working.lisp")
+      (load "/home/oleo/prg/lisp/lisp/lol-book.lisp")
+      (load "/home/oleo/prg/lisp/lisp/generators.lisp"))))
+
+(lold)
+
+(defun acl2 ()
+  (load "/home/oleo/prg/lisp/lisp/acl2.lisp"))
+
+(export 'cl-user::pds)
+(export 'cl-user::lold)
+(export 'cl-user::acl2)
+
+(declaim (optimize (safety 3) (debug 3) (space 0) (speed 0) (compilation-speed 0) (inhibit-warnings 0)))
+(declaim (sb-ext:muffle-conditions sb-ext:compiler-note))
+(declaim (sb-ext:muffle-conditions sb-ext:code-deletion-note))
+
+(defun compiler-policy () (funcall (lambda () (sb-ext:describe-compiler-policy))))
+
+(asdf:oos 'asdf:load-op :mcclim)
+
+(load "/home/oleo/quicklisp/dists/quicklisp/software/mcclim-20170227-git/Lisp-Dep/fix-sbcl.lisp")
+(load "/home/oleo/quicklisp/dists/quicklisp/software/mcclim-20170227-git/Lisp-Dep/mp-sbcl.lisp")
+
+(asdf:oos 'asdf:load-op :swank)
+(asdf:oos 'asdf:load-op :clouseau)
+
+
+(load "/home/oleo/quicklisp/dists/quicklisp/software/mcclim-20170227-git/Apps/Debugger/clim-debugger.lisp")
+
+(asdf:oos 'asdf:load-op :mcclim-clx)
+
+(asdf:oos 'asdf:load-op :clim-listener)
+
+(asdf:oos 'asdf:load-op :climacs)
+
+(asdf:oos 'asdf:load-op :mcclim-fonts)
+
+(asdf:oos 'asdf:load-op :mcclim-clx/pretty)
+
+(asdf:oos 'asdf:load-op :split-sequence)
+
+(asdf:oos 'asdf:load-op :cl-irc)
+
+(asdf:oos 'asdf:load-op :bordeaux-threads)
+
+(asdf:oos 'asdf:load-op :beirc)
+
+(asdf:oos 'asdf:load-op :closure)
+
+(defun load-gsl ()
+  (map nil #'(lambda (x) (asdf:oos 'asdf:load-op x))
+       '(:osicat
+	 :metabang-bind
+	 :static-vectors
+	 :puri
+	 :cl-base64
+	 :cl+ssl
+	 :chunga
+	 :drakma
+	 :asdf-system-connections
+	 :antik
+	 :gsll
+	 :colorize)))
+
+(defun load-sdl ()
+  (progn
+    (asdf:oos 'asdf:load-op :trivial-garbage)
+    (asdf:oos 'asdf:load-op :trivial-features)
+    (asdf:oos 'asdf:load-op :babel)
+    (asdf:oos 'asdf:load-op :cffi)
+    (asdf:oos 'asdf:load-op :lispbuilder-sdl)))
+
+(defun load-png-stuff ()
+  (progn
+    (asdf:oos 'asdf:load-op :iterate)
+    (asdf:oos 'asdf:load-op :chipz)
+    (asdf:oos 'asdf:load-op :png-read)
+    (asdf:oos 'asdf:load-op :mcclim-png-bitmaps)))
+
+(defun load-jpeg-stuff ()
+  (progn
+    (asdf:oos 'asdf:load-op :cl-jpeg)
+    (asdf:oos 'asdf:load-op :mcclim-jpeg-bitmaps)))
+
+(defun load-gif-stuff ()
+  (progn
+    (asdf:oos 'asdf:load-op :skippy)
+    (asdf:oos 'asdf:load-op :mcclim-gif-bitmaps)))
+
+(defun load-tiff-stuff ()
+  (progn
+    (asdf:oos 'asdf:load-op :ieee-floats)
+    (asdf:oos 'asdf:load-op :com.gigamonkeys.binary-data)
+    (asdf:oos 'asdf:load-op :retrospectiff)
+    (asdf:oos 'asdf:load-op :mcclim-tiff-bitmaps)))
+
+(in-package :clim-user)
+
+(asdf:oos 'asdf:load-op :functional-geometry)
+
+(defun current-view (&optional (pane-name *standard-output*))
+  (funcall
+   (lambda ()
+     (stream-default-view pane-name))))
+
+(defun current-frame-name (&optional (frame *application-frame*))
+  (funcall
+   (lambda ()
+     (or
+      (type-of frame)
+      (slot-value frame 'climi::name)))))
+
+(defun current-frame (&optional (frame *application-frame*))
+  (funcall
+   (lambda ()
+     (slot-value (frame-top-level-sheet frame) 'climi::frame))))
+
+(defun current-frame-class (&optional (frame *application-frame*))
+  (funcall
+   (lambda ()
+     (class-of frame))))
+
+(defun current-frame-class-description ()
+  (funcall
+   (lambda ()
+     (describe (current-frame-class)))))
+
+(defun current-frame-instance (&optional (frame *application-frame*))
+  (funcall
+   (lambda ()
+     frame)))
+
+(defun current-frame-instance-description ()
+  (funcall
+   (lambda ()
+     (describe (current-frame-instance)))))
+
+(defun current-frame-panes (&optional (frame *application-frame*))
+  (funcall
+   (lambda ()
+     (slot-value frame 'climi::named-panes))))
+
+(defun current-frame-layouts (&optional (frame *application-frame*))
+  (funcall
+   (lambda ()
+     (slot-value frame 'climi::layouts))))
+
+(defun current-frame-layout (&optional (frame *application-frame*))
+  (funcall
+   (lambda ()
+     (slot-value frame 'climi::current-layout))))
+
+(defun current-frame-layout-panes (&optional (frame *application-frame*))
+  (funcall
+   (lambda ()
+     (slot-value frame 'climi::panes-for-layout))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+	   (defun thread-list ()
+	     (funcall
+	      (let ()
+		(lambda ()
+		  (sb-thread:list-all-threads)))))
+
+	   (defun current-threads ()
+	     (let ()
+	       (lambda () (thread-list))))
+
+	   (setf (symbol-value 'thread-list) (funcall (symbol-function 'thread-list)))
+	   (setf (symbol-value 'current-threads) (current-threads))
+
+	   (defun kill-first-of ()
+	     (sb-thread:terminate-thread (first (sb-thread:list-all-threads))))
+
+	   (defun kill-last-of ()
+	     (sb-thread:terminate-thread (first (last (sb-thread:list-all-threads)))))
+
+	   (defun kill-nth-of (n)
+	     (sb-thread:terminate-thread (nth n (sb-thread:list-all-threads)))))
+
+(defun kill-listener ()
+  (let ((thread-list (sb-thread:list-all-threads)))
+    (dolist (x thread-list)
+      (cond ((equal "Listener" (sb-thread:thread-name x))
+	     (sb-thread:terminate-thread x))))))
+
+(defun kill-climacs ()
+  (let ((thread-list (sb-thread:list-all-threads)))
+    (dolist (x thread-list)
+      (cond ((equal (or "Climacs-RV" "Climacs") (sb-thread:thread-name x))
+	     (sb-thread:terminate-thread x))))))
+
+(defun kill-beirc ()
+  (let ((thread-list (sb-thread:list-all-threads)))
+    (dolist (x thread-list)
+      (cond ((equal "BEIRC GUI process" (sb-thread:thread-name x))
+	     (sb-thread:terminate-thread x))))))
+
+(defun kill-closure ()
+  (let ((thread-list (sb-thread:list-all-threads)))
+    (dolist (x thread-list)
+      (cond ((equal "Closure" (sb-thread:thread-name x))
+	     (sb-thread:terminate-thread x))))))
+
+
+(in-package :cl-user)
+
+(defun rcl ()
+  (load-png-stuff)
+  (load-gif-stuff)
+  (load-jpeg-stuff)
+  (load-tiff-stuff)
+  (closure:start))
+
+(defun clme ()
+  (setq climacs-gui::*default-external-format* 'utf-8)
+  (setq climacs-gui::*climacs-text-style* (clim:make-text-style :fix :bold 16))
+  (climacs:climacs-rv :new-process t))
+
+(defun clmi ()
+  #+clim
+  (progn
+    (setf *debugger-hook* #'clim-debugger:debugger)
+    (setf *invoke-debugger-hook* #'clim-debugger:debugger)
+    (let* ((*read-default-float-format* 'double-float))
+      ;; pixie doesn't work, segfaults at tiffcp in libtiff
+      ;;(setf clim:*default-frame-manager* (make-instance 'climi::pixie/clx-look :port (clim:find-port)))
+
+      ;;(setq drei::*highlight-strokes* nil)
+      ;;(setq drei::*use-tabs-for-indentation* t)
+      ;;(setq drei::*show-mark* t)
+
+      (sb-sys:without-interrupts
+       (sb-sys:with-local-interrupts
+	(unwind-protect
+	    (values
+	     (sleep 0.01)
+	     (clim-listener:run-listener :new-process t)
+	     (sleep 0.01))))))))
+
+#+clim
+(defun clm ()
+  (progn
+    (clmi)
+    (clme)))
+
+#+clim
+(let ((climi::*default-text-style* (climi::make-text-style :sans-serif :roman :large))
+      (climacs-gui::*climacs-text-style* (clim:make-text-style :sans-serif :roman :large)))
+  (defun mbrc ()
+    #+clim
+    (progn
+      (setf *debugger-hook* #'clim-debugger:debugger)
+      (setf *invoke-debugger-hook* #'clim-debugger:debugger)
+      (let* ((*read-default-float-format* 'double-float))
+	;; pixie doesn't work, segfaults at tiffcp in libtiff
+	;;(setf clim:*default-frame-manager* (make-instance 'climi::pixie/clx-look :port (clim:find-port)))
+
+	;;(setq drei::*highlight-strokes* nil)
+	(setq drei::*use-tabs-for-indentation* t)
+	(setq drei::*show-mark* t)
+
+	(sb-sys:without-interrupts
+	 (sb-sys:with-local-interrupts
+	  (unwind-protect
+	      (values
+	       (sleep 0.01)
+	       (let ((*read-eval* nil))
+		 (beirc:beirc :new-process t))
+	       (sleep 0.01)))))))))
+
+(sb-ext:save-lisp-and-die "climlisp" :executable t)

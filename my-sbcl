@@ -1,0 +1,3 @@
+export SBCL_HOME="/usr/local/lib/sbcl"
+export SBCL='/usr/local/bin/sbcl --core /usr/local/lib/sbcl/sbcl.core --dynamic-space-size 3Gb --userinit /usr/local/bin/mbclm.lisp'
+exec rlwrap -b "[]()'\" " --remember -c -f /home/oleo/.sbcl_completions -H /home/oleo/.sbcl_history -s 65535 $SBCL

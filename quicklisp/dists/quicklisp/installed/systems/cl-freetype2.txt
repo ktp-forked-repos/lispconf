@@ -1,0 +1,1 @@
+dists/quicklisp/software/cl-freetype2-20170124-git/cl-freetype2.asd

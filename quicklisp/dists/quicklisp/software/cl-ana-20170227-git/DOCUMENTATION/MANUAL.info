@@ -1,0 +1,438 @@
+This is MANUAL.info, produced by makeinfo version 5.2 from
+MANUAL.texinfo.
+
+This is the documentation for cl-ana.
+
+Copyright (C) 2013-2015 Gary Hollis
+
+
+File: MANUAL.info,  Node: Top,  Next: Features,  Up: (dir)
+
+cl-ana Manual
+*************
+
+This is the manual and user's guide for cl-ana, a free (GPL) Common Lisp
+data analysis library.
+
+Contact the project maintainer Gary Hollis at: ghollisjr@gmail.com
+
+This documentation is distributed with the source code as well as on the
+github webpage: www.github.com/ghollisjr/cl-ana
+
+* Menu:
+
+* Features::            Description of provided functionality
+* Installation::        Installation
+* User's Guide::        Tutorial-style user's guide
+* Manual::              Complete manual
+* Index::               Index
+
+
+File: MANUAL.info,  Node: Features,  Next: Installation,  Prev: Top,  Up: Top
+
+1 Features
+**********
+
+cl-ana is built in two layers.  The lowest layer is extendible via
+defining classes or methods of generic functions and supports:
+
+   * Generic math: Comes with MATLAB-like array mathematics and is
+     extendable.
+
+   * Tabular data analysis: Supports reading datasets stored in HDF5
+     files, Ntuple files as used by CERN's PAW and GSL, CSV files, and
+     can be extended.
+
+   * Binned data analysis: Supports various kinds of histograms and
+     arithmetic on histograms.
+
+   * Plotting: Provides a Lisp interface to gnuplot and comes with
+     methods predefined for various data types.
+
+   * Nonlinear least-squares fitting: Provides a clean front end to the
+     fitting capabilities of GSLL and comes with methods predefined for
+     various data types.
+
+The higher level provides a data analysis environment with dependency
+management, transparent result logging, and the ability to define
+special operators which allow definition of powerful operators and
+optimizations.  At the time of the writing of this manual, there is a
+significant gap between the capabilities of widely available software
+which supports small datasets versus large datasets.  Spreadsheet
+software provides dependency management (e.g.  recalculation based on
+changed definitions) and logging of computations to disk without having
+to explicitly program these abilities into the spreadsheet "program",
+while at the moment the tools available for large datasets are more or
+less compilers and text editors (i.e.  you have to write your own code).
+
+cl-ana bridges this gap by providing not only dependency management and
+result logging, but also a novel approach to exposing the compiler to
+the user which allows for powerful new operators and optimizations: the
+transformation pipeline.  The user selects whatever optimizations or
+special operators he/she wishes to use in a project, and can define
+custom transformations as well.  The most notable transformations
+included with cl-ana are:
+
+   * makeres-table: Provides optimizations and operators for processing
+     tabular data.  Supports all table types from the low level of
+     cl-ana.
+
+   * makeres-branch: Provides branching computations, i.e.  parallel
+     computations with automatic collection and classification of
+     results.
+
+The related project makeres-cpp provides a transformation which provides
+analogous operators to those in makeres-table, but which allows orders
+of magnitude faster code by generating C++ code and utilizing CERN's
+ROOT to provide basic analysis functionality as opposed to cl-ana's
+lower level.  Automatic conversion between results calculated in the C++
+programs is provided for histograms, lists, and can be extended to other
+types.
+
+
+File: MANUAL.info,  Node: Installation,  Next: User's Guide,  Prev: Features,  Up: Top
+
+2 Installation
+**************
+
+cl-ana is Common Lisp software, so you need a Common Lisp
+implementation.  The author strongly recommends SBCL
+(http://www.sbcl.org/), which is available for Linux and easily
+installed for many distributions, although there are many fine
+implementations available for download or purchase.
+
+The non-Lisp dependencies are:
+
+   * HDF5 (https://www.hdfgroup.org/HDF5/)
+   * GSL (http://www.gnu.org/software/gsl/)
+   * gnuplot (http://www.gnuplot.info/)
+
+The Lisp dependencies are:
+
+   * CFFI (http://common-lisp.net/project/cffi/)
+   * GSLL (http://common-lisp.net/project/gsll/)
+   * Alexandria (http://common-lisp.net/project/alexandria/)
+   * iterate (http://common-lisp.net/project/iterate/)
+   * antik (http://www.common-lisp.net/project/antik/)
+   * closer-mop (http://common-lisp.net/project/closer/closer-mop.html)
+   * cl-csv (https://github.com/AccelerationNet/cl-csv)
+   * gnuplot (http://www.gnuplot.info/)
+   * cl-fad (http://weitz.de/cl-fad/)
+   * external-program (http://github.com/sellout/external-program)
+
+The easiest way to install the Lisp dependencies is via quicklisp
+(http://www.quicklisp.org/).  The install.lisp can be loaded into your
+Lisp image once you've installed quicklisp and will automatically
+install all the Lisp components of cl-ana via quicklisp.
+
+cl-ana itself is available via quicklisp, which normally provides
+appropriately up-to-date software, but since cl-ana is under rapid
+development it is often out of date.  Therefore the easiest method is to
+use the install.lisp file once you've installed quicklisp.
+
+Note: libffi (https://sourceware.org/libffi/) is required at least by
+CFFI
+
+
+File: MANUAL.info,  Node: User's Guide,  Next: Manual,  Prev: Installation,  Up: Top
+
+3 User's Guide
+**************
+
+cl-ana is Common Lisp software, which means that the vast majority of
+people for whom it would be a useful library don't know the language.
+Therefore, this guide combines information about how to use cl-ana
+specifically as well as the basics of Lisp and how to use widely
+available free tools to best effect.
+
+Peter Seibel's Practical Common Lisp (http://www.gigamonkeys.com/book/)
+is hands-down the best single resource for starting to learn Common Lisp
+I've come across.  Paul Graham's On Lisp
+(http://www.paulgraham.com/onlisp.html) teaches you how powerful macros
+can be, and Doug Hoyte's Let Over Lambda (http://letoverlambda.com/)
+provides additional examples of how you can use Common Lisp's features
+creatively to powerful effect.  Supplementing the information in these
+books with your search engine of choice and the will to learn will make
+you a capable Lisp programmer.
+
+* Menu:
+
+* Lisp Basics::                 Prepare thyself
+* cl-ana Introduction::         Basically an advert for cl-ana
+* cl-ana Basic Libraries::      cl-ana's brick and mortar
+* cl-ana Analysis Framework::   How to really use cl-ana
+
+
+File: MANUAL.info,  Node: Lisp Basics,  Next: cl-ana Introduction,  Up: User's Guide
+
+3.1 Lisp Basics
+===============
+
+Are you sure you want this?
+
+* Menu:
+
+* Hazing::                 For those uninitiated in the Lisp dark arts
+* Armory::                 The weapons of war
+* Basic Training::         This is my rifle, this is my gun
+* Red Pill::               See the matrix
+
+
+File: MANUAL.info,  Node: Hazing,  Next: Armory,  Up: Lisp Basics
+
+3.1.1 Hazing
+------------
+
+Welcome.  Those of you who have heard of Common Lisp may doubt the
+rumors of its power.  Doubt no more brothers.  The ancient computer
+scientist John McCarthy discovered something very powerful in the depths
+of MIT. The faithful have studied and found ways to harness its power in
+the years that followed, culminating in two churches: Common Lisp
+(https://common-lisp.net/) and Scheme (http://www.schemers.org/),
+although there are rumors that there is a growing mystery cult, Clojure
+(http://clojure.org/), hiding in the shadows.
+
+The Church of Scheme and their followers, known as Schemers, strive for
+the highest purity, obstaining from sullying themselves with the
+problems of common people.  The Church of Common Lisp, whose followers
+are known as Lispers, fancy themselves to be pragmatic and have
+sacrificed purity for the sake of providing assistance to the hapless
+programmers of the world.  No one knows exactly what adherents to the
+Cult of Clojure have in mind.
+
+The basic truths of Lisp are common to all these sects, and they are
+
+  1. The REPL: Lisp code is entered into an interactive environment
+     called the Read Eval Print Loop.
+  2. The list: Lisp programs are made of lists.  The first element of a
+     list is the operator which gives meaning to the expression, and the
+     rest that follow are the arguments to the operator.
+
+These truths, simple as they are, are the ultimate source of Lisp's
+power.  Each church of Lisp extends this power by having additional
+features.
+
+
+File: MANUAL.info,  Node: Armory,  Next: Basic Training,  Prev: Hazing,  Up: Lisp Basics
+
+3.1.2 Armory
+------------
+
+If you're still reading this, then you truly want to learn how to use
+cl-ana.  You've passed the first test; enter the armory.
+
+First: your Lisp implementation.  SBCL (http://www.sbcl.org/) is at the
+moment the only implementation completely supported by cl-ana.  SBCL is
+available for POSIX platforms like Linux and Mac OS X, although there is
+only experimental support for Windows.
+
+Next is your text editor/operating system, Emacs
+(https://www.gnu.org/software/emacs/).  Anywhere else you could use
+whatever you like to write code, but nothing comes close to Emacs and
+SLIME (https://common-lisp.net/project/slime/) for writing and running
+Common Lisp code.
+
+*note Installation:: once you have SBCL, Emacs and SLIME installed for
+installing the software dependencies of cl-ana.
+
+ASDF (https://common-lisp.net/project/asdf/) is the primary way Lisp
+software dependencies are managed.  The easiest way to allow all of your
+personal code to be found is to create a file located at
+
+~/.config/common-lisp/source-registry.conf.d/projects.conf
+
+with the line
+
+(:tree (:home "path/to/source/directory"))
+
+denoting that any ASDF projects located under
+~/path/to/source/directory/ are available to be loaded.
+
+
+File: MANUAL.info,  Node: Basic Training,  Next: Red Pill,  Prev: Armory,  Up: Lisp Basics
+
+3.1.3 Basic Training
+--------------------
+
+Now that you have the proper tools, it's time to get acquainted with
+them.  Open Emacs and hit the 'F9' key, or alternatively use the command
+'M-x slime'.  You should now have an SBCL REPL in Emacs via SLIME. Type
+
+'"Hello World!"'
+
+into the REPL. Congrats on your hello world program.  Strings in Common
+Lisp are denoted by text inside double quotes, as you just entered into
+the REPL. There are many types provided out of the box by Common Lisp,
+but the most important in practice are (in no particular order)
+
+   * Lists
+   * Symbols
+   * Strings
+   * Numbers
+   * Arrays
+   * Hash tables
+   * Functions
+   * Streams
+
+LISP originally stood for LISt Programming, and lists still play a
+fundamental role in all Lisp programming as they provide the syntax.
+Accordingly, data types are broadly divided into two categories: Lists
+and Atoms, where the only confusing bit comes from the fact that the
+empty list is both a list and an atom.  As your first non-trivial code,
+enter
+
+'(+ 2 2)'
+
+Lisp syntax works as follows: Lisp programs are made of expressions.
+Expressions are either atoms or lists, and expressions always return at
+least one value when evaluated.  A list begins and ends with
+parentheses, and the elements of the list are separated by whitespace.
+The first element of the list is the operator, and the proceeding
+elements are the arguments to the operator.  So, in the above example,
+you typed in the list '(+ 2 2)' with '+', '2' and '2' as the elements.
+Lisp saw that the first element was a valid operator, in this case the
+addition function, and supplied the value '2' for both of the arguments,
+resulting in the value '4' being returned.
+
+Symbols are of critical importance to Lisp programming, but are
+typically nonexistant in other programming languages.  Symbols are
+special kinds of strings which are used to denote variable and function
+names, but they belong to packages (i.e.  groups of symbols) and their
+values can be operated on.  For example, the function for addition has
+the symbol '+', and this symbol can be returned to you by entering the
+code
+
+'(quote +)'
+
+'quote' is a special operator which returns whatever code you enter as
+its argument as-is with no evaluation.  There is a convenient shorthand
+for the 'quote' operator: Type a single quote before any expression to
+have Lisp transparently embed it inside a quote operator.  E.g.,
+
+''+'
+
+would be equivalent to what we did before.  Symbols are treated
+differently than other atoms.  If a symbol is the first element of a
+list to be evaluated, then Lisp checks to see if there is an operator
+with the same name as that symbol.  If there is, the corresponding
+operator is applied; else an error is signalled.  Atoms to be evaluated
+which are not symbols are generally returned as-is, whereas symbols to
+be evaluated are checked to see if there is a value bound to that
+symbol; if so, then the value is returned, otherwise an error is
+signalled.  So Lisp's variables and functions differ in subtle ways from
+the way most languages handle them, and the reasons for this are clearer
+once one is more familiar with the language.
+
+As these concepts are best understood through application, we proceed
+with examples.
+
+Functions are defined via 'defun'.  To define a hello-world function,
+
+'(defun hello-world () (print "Hello, World!"))'
+
+The first argument to 'defun' is the function symbol, the second is a
+list of argument specifications, and the rest of the arguments comprise
+the body of the function.  The body is executed expression by
+expression, returning the value of the last expression as the result
+value of the function.  So, a function which prints a number specified
+by the user could be defined as
+
+'(defun printnum (number) (print number))'
+
+and would be called as e.g.
+
+'(printnum 7)'
+
+Numbers are also supported, and come in four flavors: Integers,
+Rationals, Floats and Complex Numbers.
+
+As examples:
+
+   * '1' would yield the integer 1,
+   * '1f0' would yield the single float 1.0
+   * '1.0' or '1d0' would yield the double float 1.0
+   * '#c(1 1)' would yield the complex number 1 + i.
+
+
+File: MANUAL.info,  Node: Red Pill,  Prev: Basic Training,  Up: Lisp Basics
+
+3.1.4 Red Pill
+--------------
+
+test
+
+
+File: MANUAL.info,  Node: cl-ana Introduction,  Next: cl-ana Basic Libraries,  Prev: Lisp Basics,  Up: User's Guide
+
+3.2 cl-ana Introduction
+=======================
+
+Introduction to cl-ana
+
+
+File: MANUAL.info,  Node: cl-ana Basic Libraries,  Next: cl-ana Analysis Framework,  Prev: cl-ana Introduction,  Up: User's Guide
+
+3.3 cl-ana Basic Libraries
+==========================
+
+Basic libraries
+
+
+File: MANUAL.info,  Node: cl-ana Analysis Framework,  Prev: cl-ana Basic Libraries,  Up: User's Guide
+
+3.4 cl-ana Analysis Framework
+=============================
+
+Analysis framework
+
+
+File: MANUAL.info,  Node: Manual,  Next: Index,  Prev: User's Guide,  Up: Top
+
+4 Manual
+********
+
+This is the manual...
+
+
+File: MANUAL.info,  Node: Index,  Prev: Manual,  Up: Top
+
+Index
+*****
+
+ [index ]
+* Menu:
+
+* Armory:                                Armory.                (line 6)
+* Basic Training:                        Basic Training.        (line 6)
+* cl-ana Analysis Framework:             cl-ana Analysis Framework.
+                                                                (line 6)
+* cl-ana Basic Libraries:                cl-ana Basic Libraries.
+                                                                (line 6)
+* cl-ana Introduction:                   cl-ana Introduction.   (line 6)
+* Features:                              Features.              (line 6)
+* Hazing:                                Hazing.                (line 6)
+* Installation:                          Installation.          (line 6)
+* Lisp Basics:                           Lisp Basics.           (line 6)
+* Manual:                                Manual.                (line 6)
+* Red Pill:                              Red Pill.              (line 6)
+* User's Guide:                          User's Guide.          (line 6)
+
+
+
+Tag Table:
+Node: Top152
+Node: Features761
+Node: Installation3578
+Node: User's Guide5324
+Node: Lisp Basics6562
+Node: Hazing6941
+Node: Armory8538
+Node: Basic Training9861
+Node: Red Pill14089
+Node: cl-ana Introduction14205
+Node: cl-ana Basic Libraries14397
+Node: cl-ana Analysis Framework14602
+Node: Manual14788
+Node: Index14911
+
+End Tag Table

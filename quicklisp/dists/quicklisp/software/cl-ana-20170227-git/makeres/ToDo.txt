@@ -1,0 +1,223 @@
++ Update save-snapshot so that it does not assume the cp program
+  exists; this poses difficulty using cl-ana on Windows
+
++ Reorganize file structure into something that makes more sense.  At
+  the moment, there are two files makeres.lisp and logres.lisp which
+  contain various components of the now very much interconnect system.
+  A single file may be more appropriate, or, due to the already large
+  file sizes of both of them, further separation into components may
+  be more reasonable.
+
+- Check to see if logres-table is needed at all, its functionality
+  seems to have been replaced by the new caching system's treatment of
+  tables.
+
+  logres-table removed
+
+- Parameters to makeres have been deprecated; they are unnecessary due
+  to targets being so easy to work with and change, so parameters
+  provide no real alternative functionality.
+
+- Fix target-path function, at the moment it does not return correct
+  paths.  current-path seems to be ok
+
+- Allowed target IDs should be restricted due to using the target ID
+  as part of the log path.  For example, if a target ID of ../test
+  were allowed, then this target's path would be in the parent
+  directory of the current log.
+
++ Caching
+
+  - Loading targets whose forms do not match could cause problems,
+    potentially effecting targets whose forms have not changed.
+    Update load-project so that it propogates nil stats through
+    dependents of out of date logged targets.
+
+  - Table targets will need to be closed prior to modifying current
+    (e.g. loading a snapshot), so there should be a generic function
+    cleanup for an object which closes any resources needing manual
+    intervention, like tables, files, etc.
+
+    Table methods defined, files still need method however
+
+  + Temporary targets, i.e. those which only exist in
+    fin-target-tables, should never be logged and therefore should
+    have separate caching management.  Preferably, they should be
+    deleted as soon as all their immediate dependents have been
+    calculated.  To aid in this, there should be functions called in
+    the execution of the compiled makeres function on the calculation
+    of each target which would remove that target from the list of
+    immediate dependents still needing computation from any temporary
+    targets, and once a temporary target has no more immediate
+    dependents pending computation, that temporary target is removed
+    from memory.
+
+    As written now, the temporary targets are not logged but still
+    take up space in the *fin-target-table* variable until the next
+    call to makeres.  The memory overhead is minimal so I may wait a
+    while before implementing the proposed temporary caching
+    management tools.
+
+  - table.lisp in makeres.lisp needs to be moved into makeres-table,
+    and logres-table should be merged with makeres-table, having all
+    of logres-table's functionality implemented via save-target and
+    load-target.
+
+  - makeres-table needs to additionally provide operators for denoting
+    source tables and possibly even bootstrap table generation
+    targets.  Source table operators are at least necessary for being
+    able to open and close source table targets as needed.  In the
+    previous treatment, tables were not logged automatically and only
+    those which stemmed from tab forms were handled by logres-table,
+    meaning that source table targets did not have logs.  Since the
+    new approach is to log tables as well, even if the only
+    information is how to open the table, source operators may be
+    necessary.
+
+    Alternatively, simply re-evaluating a table creation form which
+    does not originate from a tab operator could be the simplest way
+    to handle re-opening tables which were inadvertently closed by
+    save-object.
+
+  - Additionally, saving tables should amount to simply closing them,
+    but this renders the preceeding table object obsolete, whereas for
+    other in-memory objects they are still available after saving.
+    Therefore, a mechanism for handling this distinction should be
+    available.  Best approach seems to be a separate function,
+    e.g. destruct-on-save?, which returns true for targets which need
+    to be re-opened from disk after saving.
+
+  * New model of versioning: Each project always has a version named
+    current which stores whatever the current working version of
+    results may be.  Snapshots can be created of this working version,
+    but this current copy is directly modified.
+
+  * makeres-propogate! will still need to be manually called to allow
+    general recomputation.  load-project and save-project will no
+    longer be useful since there will always be a version of the
+    project on disk (current).  Any initialization, such as creation
+    of project directory, should be done on project initialization.
+    At the moment, it is handled by set-project-path, but there should
+    be a single command to create a project and select any
+    transformations, project path, etc.
+
+  - Targets will always be saved to disk immediately after computation
+    when possible.
+
+  - Project will always use logged results from current version,
+    selecting other versions will simply overwrite the contents of the
+    current version.  Therefore functions for easily taking snapshots
+    of current and renaming them should be available, and directly
+    overwriting current without first making a snapshot should be
+    strongly discouraged.
+
+  - Initial state should be to check available targets from current
+    version and toggle the target-stat appropriately for each logged
+    target.  A single call to makeres would then calculate any targets
+    not available in the log, dynamically loading any necessary
+    targets from disk into memory and making use of the caching
+    algorithms selected.
+
+  - A function which sets all target-stat to NIL should be available
+    so that computation from scratch can be done easily.
+
+    This is exactly what clrres does.
+
+  - Targets should be logged in their own directory, and the target
+    directory should contain various information files describing
+    e.g. the type, the form as given to defres, the timestamp, etc.
+    The actual data should be written inside this directory, and each
+    method of save-target or save-object should control how exactly
+    this is done.  It could also be adviseable that any contents go
+    directly inside a data/ directory to make meta information easy to
+    distinguish from the data.
+
+  - (DEPRECATED) Parameters should be logged upon each call to
+    makeres.  Parameters should be placed in a parameters/ directory,
+    and their string forms (they're all keyword parameters) should
+    serve as their subpaths.
+
+  - Targets should be allowed to be ignored from logging, so cacheres,
+    save-target and load-target should be aware of ignored targets.
+
+  * ensure-table-binding-ops and ensure-table-op-expanders may not be
+    necessary to call on project creation when using tabletrans, need
+    to check this once other functionality is complete
+
+  + makeres-graphviz needs to have project->png function which
+    generates the project graph as a PNG picture using a default path
+    or a user-selected path.
+
+  + undefres needs to delete logs of undefined targets
+
+  + need function to prune log in order to remove logs of non-existent
+    targets
+
++ Add restarts to compres-generated functions which allow for retrying
+  a result, skipping a result, aborting, or halt & store results in
+  the target-table.
+
+% Allow users to specify an update strategy for re-specifying targets
+  (i.e. executing defres).  For now I've set the default to keeping
+  the old value in place but setting the status to nil ("needs to be
+  computed")
+
+  This seems less reasonable the more I've used the analysis system,
+  the current behavior is fine.
+
+- Test various graph transformations
+
+  Of special interest is the collapsing of table passes.  Approach:
+  Use new form (tabred table bindings &body body) which will be
+  interpreted as executing body inside a loop over table with bindings
+  declared outside the loop.  These bindings can be collapsed into a
+  single let/let*, and the bodies can be executed in parallel as long
+  as there are no interdependencies.  If there are interdependencies,
+  then more than one pass will be required, but this same strategy can
+  be applied to all the results which depend on first pass values, so
+  that second pass values happen in a single second pass, and so on.
+
+- Unify makeres and logres into a single framework which would allow
+  for target-wise loading/saving as well as batch load and save.  At
+  present, the entire project gets loaded into memory, which I believe
+  causes issues with my laptop (only has 2 GB memory).  It would be
+  nice to be able to do analysis on machines with low memory as well.
+
+  This will involve rewriting the res macro so that it checks to see
+  if a result is loaded first, then either loads and returns or simply
+  returns a result.
+
+- Edit projects in-place.  This is necessary if we allow single target
+  load/save independently.  Make it easy to backup a project though
+  for safety.  Version control is most likely infeasible due to the
+  size of results.
+
+% Don't delete work directory every time we load/save, just delete
+  content.
+
+  Due to the new model, unless a snapshot is loaded, the work
+  directory is not deleted, and the permissions of the work directory
+  will be copied into and from snapshots, so this should fix the
+  issues I had with e.g. linking webpages into the work direcory.
+
+- Handle non-present parameters and targets by printing a warning
+  instead of failing
+
+- Save & load parameters as well.  May inspire improved parameter
+  handling in makeres (e.g. remembering last settings if no new values
+  are given and having a reset argument for restoring default
+  parameter values).  This is critical since running makeres always
+  recomputes everything if non-default parameter values were used.
+
+- When loading parameters: Update last-param values to be the same as
+  the loaded parameters in addition to setting the current parameter
+  values (if applicable).
+
+- It may even make sense to run (makeres <param values>) after loading
+  everything so that any results unable to be stored can be
+  recomputed; can make this optional behavior to be safe.
+
+  I'm letting the user do this for now.
+
+  It's an option that should be present once makeres, logres etc. are
+  unified into a single framework.

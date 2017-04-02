@@ -1,0 +1,4 @@
+.emacs_backups/
+*.fasl
+makeres-test/
+test-data/

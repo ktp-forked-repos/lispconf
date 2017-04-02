@@ -1,0 +1,123 @@
+Version 0.6.1
+2014-11-28
+update support information (Hans Huebner)
+add /usr/local as default tree when compiling .dylib (Hans Huebner)
+add print-object method for images (Hans Huebner)
+
+Version 0.6.0
+2012-05-28
+Add animated GIF support
+
+Version 0.5.8
+2012-04-21
+Update documentation to refer to Quicklisp for installation
+Correct (setf save-alpha-p) to use &optional instead of &key (Stas Boukarev)
+Fix for Clozure CL on 64bit OSX (Manuel Odendahl)
+
+Version 0.5.7
+2009-11-22
+Changed WITH-TRANSFORMATIONS so that SBCL doesn't complain (Jeff Cunningham)
+Fixed typo in documentation (caught by J.P. Larocque)
+
+Version 0.5.6
+2007-07-29
+Made WITH-TRANSFORMATIONS thread-safe (thanks to Alain Picard)
+
+Version 0.5.5
+2007-04-24
+Ugh, fixed the fix once more (again thanks to Jong-won Choi)
+
+Version 0.5.4
+2007-04-06
+Trying to fix the 0.5.3 fix... (bug reported by Jong-won Choi)
+
+Version 0.5.3
+2007-03-19
+Fixed bug in DRAW-FREETYPE-STRING (reported by Andrei Stebakov)
+
+Version 0.5.2
+2007-02-28
+Fixed CONVERT-TO-CHAR-REFERENCES (bug caught by Luo Yong)
+Documentation fixes (thanks to Yoni Rabkin Katzenell)
+
+Version 0.5.1
+2005-10-04
+Support for OpenMCL via CFFI (thanks to Bryan O'Connor)
+
+Version 0.5.0
+2005-09-26
+Experimental CLISP/CFFI support (thanks to Luis Oliveira)
+Don't redefine what's already there (for LispWorks)
+
+Version 0.4.8
+2005-05-17
+Re-enabled the ability to build without GIF support
+
+Version 0.4.7
+2005-05-07
+Added GET-PIXEL (provided by Alan Shields)
+
+Version 0.4.6
+2005-03-31
+Fixed typo in WITH-IMAGE* (thanks to Peter Barabas)
+Handle CMUCL search lists correctly (thanks to Hans Hübner)
+Added -lc option to linker call and included makefile (thanks to Hans Hübner)
+
+Version 0.4.5
+2005-03-16
+Fixed type check in MAKE-STREAM-FN (thanks to Walter C. Pelissero)
+
+Version 0.4.4
+2005-03-09
+More bug fixes (thanks to Carlos Ungil)
+
+Version 0.4.3
+2005-03-09
+Some bug fixes (thanks to Carlos Ungil)
+
+Version 0.4.2
+2004-11-26
+Build GIF support by default
+Added link to cl-gd-glue.dll for Windows and corresponding documentation
+Updated files in test/orig
+
+Version 0.4.1
+2004-05-21
+Replaced WRITE-BYTE with WRITE-SEQUENCE for LispWorks - see <http://article.gmane.org/gmane.lisp.lispworks.general/1827>
+
+Version 0.3.1
+2004-04-25
+Two separate C source files (with and without GIF support)
+Added note about failed tests
+Added hyperdoc support
+Added :CL-GD to *FEATURES*
+
+Version 0.3.0
+2004-03-29
+Added GIF support (thanks to Hans Hübner)
+Added Gentoo link
+
+Version 0.2.0
+2003-10-26
+Added DO-PIXELS and friends (proposed by Kevin Rosenberg)
+Added Debian link
+
+Version 0.1.4
+2003-08-29
+Added library path for Debian compatibility (thanks to Kevin Rosenberg)
+
+Version 0.1.3
+2003-08-29
+Make CL-GD-TEST output less verbose for SBCL (thanks to Christophe Rhodes)
+
+Version 0.1.2
+2003-08-28
+Changed WITH-TRANSFORMATION macro to keep SBCL from complaining (thanks to Christophe Rhodes)
+
+Version 0.1.1
+2003-08-28
+Fixed *NULL-IMAGE* bug in DRAW-FREETYPE-STRING
+
+Version 0.1.0
+2003-08-26
+Initial release
